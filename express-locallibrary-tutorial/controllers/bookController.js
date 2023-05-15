@@ -1,14 +1,51 @@
 const Book = require("../models/book");
-const asyncHandler = require('express-async-handler')
+const Author = require("../models/author");
+const Genre = require("../models/genre");
+const BookInstance = require("../models/bookinstance");
+
+const { body, validationResult } = require("express-validator");
+const asyncHandler = require("express-async-handler");
 
 exports.index = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: Site Home Page");
+  // Get details of books, book instances, authors and genre counts (in parallel)
+  const booksss = await Book.find();
+  console.log(booksss)
+  const [
+    numBooks,
+    numBookInstances,
+    numAvailableBookInstances,
+    numAuthors,
+    numGenres,
+  ] = await Promise.all([
+    Book.aggregate([{ $count: "count" }]).then((result) => (result.length > 0 ? result[0].count : 0)),
+    BookInstance.countDocuments({}).exec(),
+    BookInstance.countDocuments({ status: "Available" }).exec(),
+    Author.countDocuments({}).exec(),
+    Genre.countDocuments({}).exec(),
+  ]);
+  console.log(numBooks, numBookInstances, numAvailableBookInstances, numAuthors, numGenres)
+  res.render("layout", {
+    title: "Local Library Home",
+    book_count: numBooks,
+    book_instance_count: numBookInstances,
+    book_instance_available_count: numAvailableBookInstances,
+    author_count: numAuthors,
+    genre_count: numGenres,
+    partialName: "index"
+  });
 });
+
 
 // Display list of all books.
 exports.book_list = asyncHandler(async (req, res, next) => {
-  res.send("NOT IMPLEMENTED: Book list");
+  const allBooks = await Book.find({}, "title author")
+    .sort({ title: 1 })
+    .populate("author")
+    .exec();
+
+  res.render("layout", { title: "Book List", book_list: allBooks, partialName: "book_list" });
 });
+
 
 // Display detail page for a specific book.
 exports.book_detail = asyncHandler(async (req, res, next) => {
